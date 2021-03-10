@@ -1,0 +1,8 @@
+setuptools
+cryptocompare
+pymitter
+money
+requests
+colorama
+tenacity
+cryptomarket
