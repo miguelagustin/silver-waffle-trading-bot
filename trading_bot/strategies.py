@@ -24,6 +24,10 @@ class Auto:
         self.thread.start()
         Auto.instances.append(self)
 
+    def shutdown_in_minutes(self, minutes):
+        sleep(minutes*60)
+        self.stop()
+
 
 class AutoExecute(Auto):
     def __init__(self, *, pair: Pair, price, side):
@@ -33,10 +37,10 @@ class AutoExecute(Auto):
 
     def currency_has_enough_balance(self, order):
         if self.side is BID:
-            if self.pair.base.balance['total_balance'] > order.amount:
+            if self.pair.base.balance['total_balance'].amount > order.amount:
                 return True
         elif self.side is ASK:
-            if self.pair.quote.balance['total_balance']/order.price > order.amount:
+            if self.pair.quote.balance['total_balance'].amount/order.price > order.amount:
                 return True
         else:
             return False
