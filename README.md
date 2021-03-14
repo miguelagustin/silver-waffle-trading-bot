@@ -5,3 +5,4 @@ To do:
 * Add documentation
 * Add more exchanges
 * Add more strategies
+* Add logging

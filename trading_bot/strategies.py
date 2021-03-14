@@ -31,14 +31,24 @@ class AutoExecute(Auto):
         self.price = float(price)
         self.start_thread(self.auto_execute)
 
+    def currency_has_enough_balance(self, order):
+        if self.side is BID:
+            if self.pair.base.balance['total_balance'] > order.amount:
+                return True
+        elif self.side is ASK:
+            if self.pair.quote.balance['total_balance']/order.price > order.amount:
+                return True
+        else:
+            return False
+
     def auto_execute(self):
         while True:
-            # if pair.orderbook.orders['updated_id'] == last_id:
-            #     sleep(0.5)
-            #     continue
-            # last_id = pair.orderbook['updated_id']
             order = self.pair.orderbook[self.side][0]
             if get_truth(order.price, '<' if self.side is ASK else '>', self.price):
+                if not self.currency_has_enough_balance(order):
+                    print("not enough balance to auto execute")
+                    sleep(30)
+                    continue
                 with thread_lock:
                     self.pair.cancel_orders(self.side)
                     self.pair.cancel_orders(self.side.get_opposite())

@@ -124,10 +124,6 @@ class Currency:
                          'total_balance': locked_balance + available_balance}
 
     def update_balance(self, currency=None):
-        # if self.exchange_client.api_type == 'SOCKET':
-        #     print('not needed')
-        #     return
-
         new_balance = self.exchange_client.get_balance(self)
         self._set_balance(new_balance, currency=currency)
         ee.emit("updated_balance")
@@ -151,13 +147,6 @@ class Currency:
                 return True
         return False
 
-    # def __update_balance_daemon__(self):
-    #     while True:
-    #         for pair in self.base_pairs + self.quote_pairs:
-    #             if pair:
-    #                 self.update_balance()
-    #                 break
-    #         sleep(self._update_balance_sleep_time)
     def __repr__(self):
         return self.name
 
@@ -168,8 +157,6 @@ class Currency:
         return self.name == other.name
 
     def __ne__(self, other):
-        # Not strictly necessary, but to avoid having both x==y and x!=y
-        # True at the same time
         return not (self == other)
 
 
@@ -213,8 +200,6 @@ class Pair:
         self.quote.update_balance()
         self.base.update_balance()
         ee.emit('status_changed', self)
-        # if side is BID:
-        #     self.quote.coin_percentage_rebalance()
 
     def toggle_side_status(self, side: Side):
         self.set_side_status(side, False if self.status[side] is True else True)
@@ -227,7 +212,6 @@ class Pair:
     def create_limit_order(self, amount=None, side=None, limit_price=None):
         assert amount and side and limit_price
         order = self.exchange_client.create_order(self, amount, side, limit_price=limit_price)
-        # print(order.order_id)
         if order:
             self.orders[order.side].append(order)
             return order
@@ -238,7 +222,6 @@ class Pair:
 
     def cancel_order(self, order):
         self.exchange_client.cancel_order(order)
-        # print(f"cancelled {order.order_id} {order.side}")
         try:
             self.orders[order.side].remove(order)
         except ValueError:
@@ -250,12 +233,6 @@ class Pair:
 
     def update_orderbook(self):
         self.orderbook.update(self.exchange_client.get_book(self))
-
-    # def get_total_quote_balance_used(self, side):
-    #     total = 0
-    #     for order in self.orders[side]:
-    #         total += order.amount
-    #     return total
 
     def __hash__(self):
         return hash((self.quote.name, self.base.name))

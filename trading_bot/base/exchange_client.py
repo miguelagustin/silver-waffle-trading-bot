@@ -1,4 +1,3 @@
-from pymitter import EventEmitter
 import threading
 from forex_python.converter import CurrencyCodes
 from abc import ABC, abstractmethod
@@ -6,11 +5,7 @@ from time import sleep, time
 import requests
 import sys
 from .exchange import Cryptocurrency
-from money import Money
-import cryptocompare
-import ui
 from .side import ASK, BID
-from trading_bot.utilities import truncate
 
 class ExchangeClient(ABC):
     def __init__(self, is_rate_limited=False):
