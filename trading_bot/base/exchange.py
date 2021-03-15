@@ -6,10 +6,9 @@ from money import Money
 import cryptocompare
 import trading_bot.ui as ui
 from .side import ASK, BID
+from .constants import STABLECOIN_SYMBOLS
 from trading_bot.utilities import truncate
 
-
-STABLECOIN_SYMBOLS = ['USDC', 'DAI', 'USDT', 'BUSD', 'TUSD', 'PAX', 'VAI']
 thread_lock = threading.Lock()
 ee = EventEmitter()
 
@@ -101,6 +100,7 @@ class Currency:
         self.symbol = symbol
         self._balance = {}
         self.update_balance()
+        self.update_global_price()
         self.empty_value = Money(10, currency='USD')
         # self.reserved_amount_mode = reserved_amount_mode
         self.quote_pairs = []  # pairs where this currency is quote
@@ -132,10 +132,7 @@ class Currency:
         pass
 
     def balance_is_empty(self):
-        if time() - self._exchange_rate_last_update > 30:
-            self._exchange_rate = cryptocompare.get_price('USD', currency=self.symbol)['USD'][self.symbol.upper()]
-            self._exchange_rate_last_update = time()
-        if self.balance['total_balance'].amount < float(self.empty_value.amount) * self._exchange_rate:
+        if self.balance['total_balance'].amount < float(self.empty_value.amount) * 1/self.global_price:
             ee.emit('balance_is_empty')
             return True
         else:
@@ -146,6 +143,12 @@ class Currency:
             if pair:
                 return True
         return False
+
+    def update_global_price(self):
+        self.global_price = self.get_global_price()
+
+    def get_global_price(self):
+        return cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
 
     def __repr__(self):
         return self.name
@@ -158,18 +161,6 @@ class Currency:
 
     def __ne__(self, other):
         return not (self == other)
-
-
-class Cryptocurrency(Currency):
-    def __init__(self, *, name, symbol, exchange_client):
-        super().__init__(name=name, symbol=symbol, exchange_client=exchange_client)
-        self.update_international_price()
-
-    def update_international_price(self):
-        self.international_price = self.get_international_price()
-
-    def get_international_price(self):
-        return cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
 
 class Pair:
     def __init__(self, *, exchange_client: ExchangeClient, ticker: int, quote: Currency, base: Currency,

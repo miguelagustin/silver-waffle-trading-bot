@@ -1,0 +1,1 @@
+STABLECOIN_SYMBOLS = ['USDC', 'DAI', 'USDT', 'BUSD', 'TUSD', 'PAX', 'VAI']

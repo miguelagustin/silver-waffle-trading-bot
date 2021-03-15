@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from time import sleep, time
 import requests
 import sys
-from .exchange import Cryptocurrency
+from .constants import STABLECOIN_SYMBOLS
 from .side import ASK, BID
 
 class ExchangeClient(ABC):
@@ -64,10 +64,12 @@ class ExchangeClient(ABC):
         return True if CurrencyCodes().get_symbol(symbol) is None else False
 
     def __start_threads__(self, pair):
-        def launch_thread(thread, arg):
-            thread = threading.Thread(target=thread, args=[arg])
+        def launch_thread(thread, pair_or_currency):
+            thread = threading.Thread(target=thread, args=[pair_or_currency])
             thread.daemon = True
-            self.threads[arg] = thread
+            if pair_or_currency not in self.threads:
+                self.threads[pair_or_currency] = []
+            self.threads[pair_or_currency].append(thread)
             thread.start()
 
         assert pair in self.pairs
@@ -76,8 +78,7 @@ class ExchangeClient(ABC):
             for currency in [pair.quote, pair.base]:
                 if not (currency in self.threads and self.threads[currency]):
                     launch_thread(self.__update_balance_daemon__, currency)
-                if isinstance(currency, Cryptocurrency):
-                    launch_thread(self.__update_international_price_daemon__, currency)
+                    launch_thread(self.__update_global_price_daemon__, currency)
 
     def __update_book_daemon__(self, pair):
         def exit_thread():
@@ -107,11 +108,14 @@ class ExchangeClient(ABC):
                 currency.update_balance()
             sleep(self._update_balance_sleep_time)
 
-    def __update_international_price_daemon__(self, currency):
+    def __update_global_price_daemon__(self, currency):
         while True:
+            if currency.symbol in STABLECOIN_SYMBOLS:
+                currency.global_price = 1
+                sys.exit()  # close the daemon
             try:
-                currency.update_international_price()
-                sleep(45)
+                currency.update_global_price()
+                sleep(60)
             except (requests.exceptions.HTTPError, UnboundLocalError):
                 return
 
