@@ -19,10 +19,13 @@ def is_not_local_exception(exception):
 
 class Cryptomkt(ExchangeClient):
 
-    def __init__(self, public, secret):
+    def __init__(self, public_key=None, secret_key=None):
         self.name = 'Cryptomarket'
         super().__init__()
-        self._base_client = cryptomkt(public, secret)
+        if public_key is None or secret_key is None:
+            public_key = input('Enter your public key: ')
+            secret_key = input('Enter your private key: ')
+        self._base_client = cryptomkt(public_key, secret_key)
         self.socket = self._base_client.get_socket()
         self.socket.logger.disabled = True
         self.socket.on('open-book', self._handle_socket_orderbook)

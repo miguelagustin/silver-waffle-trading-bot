@@ -55,12 +55,15 @@ def is_not_local_exception(exception):
 
 
 class Buda(ExchangeClient):
-    def __init__(self, public, secret):
+    def __init__(self, public_key=None, secret_key=None):
         super().__init__()
         self.name = 'Buda'
+        if public_key is None or secret_key is None:
+            public_key = input('Enter your public key: ')
+            secret_key = input('Enter your private key: ')
         self.base_uri = 'https://www.buda.com/api'
         self.api_type = 'REST'
-        self.auth = BudaHMACAuth(public, secret)
+        self.auth = BudaHMACAuth(public_key, secret_key)
         self.timeout = 5
 
     @retry(stop=stop_after_attempt(number_of_attempts))

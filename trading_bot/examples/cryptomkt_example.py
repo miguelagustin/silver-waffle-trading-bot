@@ -4,10 +4,7 @@ from trading_bot.manager import PairManager
 import trading_bot.exchanges.cryptomkt as Cryptomkt
 from trading_bot.ui import Menu
 
-public_key = input('Enter your public key: ')
-secret_key = input('Enter your private key: ')
-
-cryptomkt = Cryptomkt.Cryptomkt(public_key, secret_key)
+cryptomkt = Cryptomkt.Cryptomkt()
 cryptomkt.update_book_if_balance_is_empty = False
 
 # Since cryptomarket doesn't have the api endpoints to auto define the pairs, this has to be done manually.
