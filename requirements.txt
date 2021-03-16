@@ -6,3 +6,4 @@ requests
 colorama
 tenacity
 cryptomarket
+ordered-set

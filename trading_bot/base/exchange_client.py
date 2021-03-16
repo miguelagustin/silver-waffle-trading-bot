@@ -87,10 +87,10 @@ class ExchangeClient(ABC):
 
         while True:
             if not self.update_book_if_balance_is_empty:
-                if pair.status[BID] and not pair.status[ASK] and pair.base.balance_is_empty():
+                if pair.status[BID] and not pair.status[ASK] and pair.quote.balance_is_empty():
                     sleep(5)
                     continue
-                if pair.status[ASK] and not pair.status[BID] and pair.quote.balance_is_empty():
+                if pair.status[ASK] and not pair.status[BID] and pair.base.balance_is_empty():
                     sleep(5)
                     continue
                 if pair.base.balance_is_empty() and pair.quote.balance_is_empty():

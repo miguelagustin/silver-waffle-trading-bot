@@ -25,8 +25,10 @@ class Auto:
         Auto.instances.append(self)
 
     def shutdown_in_minutes(self, minutes):
-        sleep(minutes*60)
-        self.stop()
+        def shutdown():
+            sleep(minutes*60)
+            self.stop()
+        Thread(target=shutdown)
 
 
 class AutoExecute(Auto):
