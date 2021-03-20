@@ -26,9 +26,9 @@ class PairManager:
         active_pairs = self.get_active_pairs()
         currencies_in_use = dict.fromkeys(self.currencies, 0)
         for pair in active_pairs:
-            if pair.status[ASK]:
-                currencies_in_use[pair.quote] += 1
             if pair.status[BID]:
+                currencies_in_use[pair.quote] += 1
+            if pair.status[ASK]:
                 currencies_in_use[pair.base] += 1
         self.currencies_in_use = currencies_in_use
         self.amounts = dict.fromkeys(self.currencies, 0)
