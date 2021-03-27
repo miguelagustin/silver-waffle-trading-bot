@@ -67,6 +67,14 @@ class OrderbookSide:
         ui.print_side(self)
         return ''
 
+    def check_if_book_changed(self, new_book):
+        if self._orders:
+            if not any(x != y for x, y in zip(self._orders, new_book)):  # if book data is equal
+                return False
+        return True
+
+    def set_orders(self, book):
+        self._orders = book
 
 class Orderbook:
     def __init__(self, pair):
@@ -81,17 +89,16 @@ class Orderbook:
         return ''
 
     def update(self, book):
-        if ASK in book:
-            self.orders[ASK]._orders = book[ASK]
-        if BID in book:
-            self.orders[BID]._orders = book[BID]
-        if 'updated_id' in book:
-            if book['updated_id'] != self.orders['updated_id']:
-                ee.emit("book_changed", self.pair)
-                self.orders['updated_id'] = book['updated_id']
-        else:
-            ee.emit("book_changed", self.pair)
+        if not (ASK in book and BID in book):
+            raise ValueError('Mising data in book')
 
+        ask_changed = self.orders[ASK].check_if_book_changed(book[ASK])
+        bid_changed = self.orders[BID].check_if_book_changed(book[BID])
+
+        if ask_changed or bid_changed:
+            self.orders[ASK].set_orders(book[ASK])
+            self.orders[BID].set_orders(book[BID])
+            ee.emit('book_changed', self.pair)
 
 class Currency:
     def __init__(self, *, name, symbol, exchange_client):
