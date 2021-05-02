@@ -1,10 +1,11 @@
-from exceptions import *
-from base.exchange import Order
-from base.side import ASK, BID
-from base.exchange_client import ExchangeClient
+from trading_bot.exceptions import *
+from trading_bot import base
+from trading_bot.base.exchange import Order
+from trading_bot.base.side import ASK, BID
+from trading_bot.base.exchange_client import ExchangeClient
 from tenacity import retry, retry_if_exception, stop_after_attempt
 import requests
-from utilities import truncate
+from trading_bot.utilities import truncate
 import base64
 import hmac
 import time
@@ -56,15 +57,16 @@ def is_not_local_exception(exception):
 
 class Buda(ExchangeClient):
     def __init__(self, public_key=None, secret_key=None):
-        super().__init__()
+        super().__init__(read_only=True if not (public_key and secret_key) else False)
         self.name = 'Buda'
-        if public_key is None or secret_key is None:
-            public_key = input('Enter your public key: ')
-            secret_key = input('Enter your private key: ')
+        # if not read_only and (public_key is None or secret_key is None):
+        #     public_key = input('Enter your public key: ')
+        #     secret_key = input('Enter your private key: ')
         self.base_uri = 'https://www.buda.com/api'
         self.api_type = 'REST'
         self.auth = BudaHMACAuth(public_key, secret_key)
         self.timeout = 5
+
 
     @retry(stop=stop_after_attempt(number_of_attempts))
     def get_book(self, pair):
@@ -131,7 +133,7 @@ class Buda(ExchangeClient):
     def unsubscribe(self, pair):
         pass
 
-    def get_list_of_currencies_and_pairs(self):
+    def get_list_of_currencies_and_pairs(self, auto_register=False):
         response = requests.get(f"{self.base_uri}/v2/markets", timeout=self.timeout).json()
         pairs = response['markets']
         list_of_currencies = set([])
@@ -145,22 +147,24 @@ class Buda(ExchangeClient):
                     if pair['quote_currency'] == curr.symbol:
                         quote_curr = curr
                 if not base_curr:
-                    base_curr = base.Currency(name=pair['base_currency'], symbol=pair['base_currency'],
-                                              exchange_client=self)
+                    base_curr = base.exchange.Currency(name=pair['base_currency'], symbol=pair['base_currency'],
+                                                       exchange_client=self)
                 if not quote_curr:
-                    quote_curr = base.Currency(name=pair['quote_currency'], symbol=pair['quote_currency'],
-                                               exchange_client=self)
+                    quote_curr = base.exchange.Currency(name=pair['quote_currency'], symbol=pair['quote_currency'],
+                                                        exchange_client=self)
             except currency_doesnt_exist:
                 continue
-            pair = base.Pair(ticker=pair['id'], quote=base_curr, base=quote_curr,
-                             minimum_step=pair['minimum_order_amount'][0], exchange_client=self)
+            pair = base.exchange.Pair(ticker=pair['id'], quote=quote_curr, base=base_curr,
+                                      minimum_step=pair['minimum_order_amount'][0], exchange_client=self)
             list_of_pairs.append(pair)
             list_of_currencies.add(quote_curr)
             list_of_currencies.add(base_curr)
+        if auto_register is True:
+            for pair in list_of_pairs:
+                self._register_pair_and_currencies(pair)
         return list(list_of_currencies), list_of_pairs
 
     def get_history(self, pair):
         response = requests.get(f"{self.base_uri}/v1/trade/{pair.ticker}/", headers=self.headers,
                                 timeout=self.timeout).json()
         print(response)
-

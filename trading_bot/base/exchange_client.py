@@ -8,11 +8,13 @@ from .constants import STABLECOIN_SYMBOLS
 from .side import ASK, BID
 
 class ExchangeClient(ABC):
-    def __init__(self, is_rate_limited=False):
+    def __init__(self, is_rate_limited=False, read_only=False):
+        self.read_only = read_only
         self._update_delay = 1
         self._update_balance_sleep_time = 7
-        self.pairs = set({})
+        self.pairs = set()
         self.pairs_by_ticker = {}
+        self.pairs_to_always_update = set()
         self.currencies_by_symbol = {}
         self.currencies = set({})
         self.is_rate_limited = is_rate_limited
@@ -53,6 +55,11 @@ class ExchangeClient(ABC):
     def get_list_of_currencies_and_pairs(self):
         pass
 
+    def get_pair_by_ticker(self, ticker):
+        for pair in self.pairs:
+            if pair.ticker.lower() == ticker.lower():
+                return pair
+
     def _register_pair_and_currencies(self, pair):
         self.pairs.add(pair)
         self.currencies.add(pair.quote)
@@ -77,8 +84,9 @@ class ExchangeClient(ABC):
             launch_thread(self.__update_book_daemon__, pair)
             for currency in [pair.quote, pair.base]:
                 if not (currency in self.threads and self.threads[currency]):
-                    launch_thread(self.__update_balance_daemon__, currency)
                     launch_thread(self.__update_global_price_daemon__, currency)
+                    if self.read_only is False:
+                        launch_thread(self.__update_balance_daemon__, currency)
 
     def __update_book_daemon__(self, pair):
         def exit_thread():
@@ -96,11 +104,11 @@ class ExchangeClient(ABC):
                 if pair.base.balance_is_empty() and pair.quote.balance_is_empty():
                     sleep(5)
                     continue
-            if pair:
+            if pair or pair in self.pairs_to_always_update:
                 pair.orderbook.update(self.get_book(pair))
                 sleep(self._update_delay)
             else:
-                exit_thread()
+                sleep(5)
 
     def __update_balance_daemon__(self, currency):
         while True:

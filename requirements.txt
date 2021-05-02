@@ -7,3 +7,4 @@ colorama
 tenacity
 cryptomarket
 ordered-set
+forex_python

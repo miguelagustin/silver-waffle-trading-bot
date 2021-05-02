@@ -12,6 +12,17 @@ from trading_bot.utilities import truncate
 thread_lock = threading.Lock()
 ee = EventEmitter()
 
+
+def check_read_only(exchange_client):
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            if exchange_client.read_only is False:
+                result = function(*args, **kwargs)
+                return result
+        return wrapper
+    return decorator
+
+
 class Order:
     def __init__(self, price, side, amount, order_id=None, pair=None):
         self.side = side
@@ -88,6 +99,10 @@ class Orderbook:
         ui.print_orderbook(self)
         return ''
 
+    # def get_first_order_above(self, amount, side = None):
+    #     if side is None:
+
+
     def update(self, book):
         if not (ASK in book and BID in book):
             raise ValueError('Mising data in book')
@@ -131,6 +146,8 @@ class Currency:
                          'total_balance': locked_balance + available_balance}
 
     def update_balance(self, currency=None):
+        if self.exchange_client.read_only is True:
+            return
         new_balance = self.exchange_client.get_balance(self)
         self._set_balance(new_balance, currency=currency)
         ee.emit("updated_balance")
@@ -182,11 +199,12 @@ class Pair:
         self.orders = {ASK: [], BID: []}
         self.status = {ASK: False, BID: False}
         self.ticker = ticker
+
         self.update_active_orders()
         self.cancel_orders(ASK)
         self.cancel_orders(BID)
 
-    def set_side_status(self, side: Side, new_status: bool) -> None:
+    def set_side_status(self, side: Side, new_status: bool, _launch_event = True) -> None:
         self.status[side] = new_status
         if new_status is True:
             self.exchange_client.subscribe(self)
@@ -197,17 +215,22 @@ class Pair:
         self.cancel_orders(side)
         self.quote.update_balance()
         self.base.update_balance()
-        ee.emit('status_changed', self)
+        if _launch_event:
+            ee.emit('status_changed', self)
 
     def toggle_side_status(self, side: Side):
         self.set_side_status(side, False if self.status[side] is True else True)
 
     def update_active_orders(self):
+        if self.exchange_client.read_only is True:
+            return
         result = self.exchange_client.get_active_orders(self)
         self.orders[ASK] = sorted(result[ASK])
         self.orders[BID] = sorted(result[BID])
 
     def create_limit_order(self, amount=None, side=None, limit_price=None):
+        if self.exchange_client.read_only is True:
+            return
         assert amount and side and limit_price
         order = self.exchange_client.create_order(self, amount, side, limit_price=limit_price)
         if order:
@@ -215,10 +238,14 @@ class Pair:
             return order
 
     def create_market_order(self, amount=None, side=None):
+        if self.exchange_client.read_only is True:
+            return
         assert amount and side
         self.exchange_client.create_order(self, amount, side)
 
     def cancel_order(self, order):
+        if self.exchange_client.read_only is True:
+            return
         self.exchange_client.cancel_order(order)
         try:
             self.orders[order.side].remove(order)
@@ -226,8 +253,22 @@ class Pair:
             pass
 
     def cancel_orders(self, side):
-        for order in self.orders[side]:
-            self.cancel_order(order)
+        if self.exchange_client.read_only is True:
+            return
+        while self.orders[side]:
+            for order in self.orders[side]:
+                self.cancel_order(order)
+
+    def _change_side(self, new_status):
+        self.set_side_status(ASK, new_status, _launch_event=False)
+        self.set_side_status(BID, new_status, _launch_event=False)
+        ee.emit('status_changed', self)
+
+    def enable(self):
+        self._change_side(True)
+
+    def disable(self):
+        self._change_side(False)
 
     def update_orderbook(self):
         self.orderbook.update(self.exchange_client.get_book(self))

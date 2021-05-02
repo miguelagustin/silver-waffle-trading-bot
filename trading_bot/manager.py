@@ -15,6 +15,9 @@ class PairManager:
             self.pairs = OrderedSet(list_of_pairs)
         self.currencies_in_use = dict.fromkeys(self.currencies, 0)
         self.currency_offset = dict.fromkeys(self.currencies, 0)
+        self.max_amounts = {}
+        self._percentage_by_currency = {}
+        self._percentage_by_pair = {}
         self.amounts = {}
         self.set_amounts()
 
@@ -34,10 +37,22 @@ class PairManager:
         self.amounts = dict.fromkeys(self.currencies, 0)
         for currency in self.currencies:
             try:
+
                 self.amounts[currency] = (currency.balance['total_balance'] - self.currency_offset[currency]) / \
                                          currencies_in_use[currency]
             except ZeroDivisionError:
                 self.amounts[currency] = currency.balance['total_balance']
+
+    def get_amounts(self, pair) -> dict:
+        self.set_amounts()
+        result_dict = {}
+        for currency in [pair.base, pair.quote]:
+            if pair in self._percentage_by_pair:
+                if self._percentage_by_pair[pair][currency] is not None:
+                    result_dict[currency] = currency.balance * self._percentage_by_pair[pair][currency]
+            else:
+                result_dict[currency] = currency.balance
+        return result_dict
 
     def get_active_pairs(self):
         active_pairs = []
@@ -45,6 +60,25 @@ class PairManager:
             if pair.status[ASK] or pair.status[BID]:
                 active_pairs.append(pair)
         return active_pairs
+
+    def set_max_percent_usage(self, pair, base = None, quote = None):
+        if base is None and quote is None:
+            print("error")
+            return
+        for currency, side in zip([pair.base, pair.quote], [base, quote]):
+            if self._percentage_by_pair[pair][currency] is not None and side is None:
+                self._percentage_by_currency[currency] -= self._percentage_by_pair[pair][currency]
+
+            if side is not None:
+                if currency in self._percentage_by_currency.keys():
+                    if self._percentage_by_currency[currency] + side > 100:
+                        print(f'error, % reaches >100. current %: {self._percentage_by_currency[pair.base]}')
+                        return
+                self._percentage_by_currency[currency] += side
+
+        self._percentage_by_pair[pair] = {pair.base:base, pair.quote:quote}
+        self.set_amounts()
+
 
     def cancel_orders(self, currency):
         for pair in self.pairs:
