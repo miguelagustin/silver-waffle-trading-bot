@@ -46,8 +46,9 @@ class Order:
 
 
 class OrderbookSide:
-    def __init__(self, side):
+    def __init__(self, side, pair):
         self.side = side
+        self.pair = pair
         self._idx = 0
         self._orders = []
 
@@ -87,10 +88,23 @@ class OrderbookSide:
     def set_orders(self, book):
         self._orders = book
 
+    def get_order_above(self, amount_threshold):
+        for order in self:
+            if order.amount < amount_threshold / self.pair.base.global_price:
+                continue
+            if self.pair.orders[self.side] and order.price == self.pair.orders[self.side][0].price:
+                continue
+            return order
+
 class Orderbook:
     def __init__(self, pair):
-        self.orders = {ASK: OrderbookSide(ASK), BID: OrderbookSide(BID), 'updated_id': None}
+        self.orders = {ASK: OrderbookSide(ASK, pair), BID: OrderbookSide(BID, pair), 'updated_id': None}
         self.pair = pair
+
+    def get_orders_above(self, amount_threshold):
+        results = {ASK: self.orders[ASK].get_order_above(amount_threshold),
+                   BID: self.orders[BID].get_order_above(amount_threshold)}
+        return results
 
     def __getitem__(self, key):
         return self.orders[key]
@@ -98,6 +112,7 @@ class Orderbook:
     def __repr__(self):
         ui.print_orderbook(self)
         return ''
+
 
     # def get_first_order_above(self, amount, side = None):
     #     if side is None:
