@@ -7,20 +7,10 @@ import cryptocompare
 import trading_bot.ui as ui
 from .side import ASK, BID
 from .constants import STABLECOIN_SYMBOLS
-from trading_bot.utilities import truncate
+from trading_bot.utilities import truncate, get_truth
 
 thread_lock = threading.Lock()
 ee = EventEmitter()
-
-
-def check_read_only(exchange_client):
-    def decorator(function):
-        def wrapper(*args, **kwargs):
-            if exchange_client.read_only is False:
-                result = function(*args, **kwargs)
-                return result
-        return wrapper
-    return decorator
 
 
 class Order:
@@ -96,6 +86,16 @@ class OrderbookSide:
                 continue
             return order
 
+    def get_orders_up_until(self, price_threshold):
+        results = []
+        for order in self:
+            if get_truth(order.price, '<' if self.side == ASK else '>', price_threshold):
+                results.append(order)
+            else:
+                break
+        return results
+
+
 class Orderbook:
     def __init__(self, pair):
         self.orders = {ASK: OrderbookSide(ASK, pair), BID: OrderbookSide(BID, pair), 'updated_id': None}
@@ -106,17 +106,34 @@ class Orderbook:
                    BID: self.orders[BID].get_order_above(amount_threshold)}
         return results
 
+    def get_liquidity(self, percentage_from_midpoint=0.04):
+        first_ask = self.orders[ASK].get_order_above(60)
+        first_bid = self.orders[BID].get_order_above(60)
+
+        midpoint = first_bid.price + (first_ask.price - first_bid.price)/2
+
+        orders = {ASK: self.orders[ASK].get_orders_up_until(midpoint * (1 + percentage_from_midpoint)),
+                  BID: self.orders[BID].get_orders_up_until(midpoint * (1 - percentage_from_midpoint))}
+
+        results = {ASK: None, BID: None}
+        for side in [ASK, BID]:
+            total_amount = 0
+            for order in orders[side]:
+                total_amount += order.amount
+            results[side] = total_amount
+        return results
+
+    def get_spread(self, amount_threshold=0):
+        first_ask = self.orders[ASK].get_order_above(amount_threshold)
+        first_bid = self.orders[BID].get_order_above(amount_threshold)
+        return first_ask.price - first_bid.price
+
     def __getitem__(self, key):
         return self.orders[key]
 
     def __repr__(self):
         ui.print_orderbook(self)
         return ''
-
-
-    # def get_first_order_above(self, amount, side = None):
-    #     if side is None:
-
 
     def update(self, book):
         if not (ASK in book and BID in book):

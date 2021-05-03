@@ -8,7 +8,8 @@ from .constants import STABLECOIN_SYMBOLS
 from .side import ASK, BID
 
 class ExchangeClient(ABC):
-    def __init__(self, is_rate_limited=False, read_only=False):
+    def __init__(self, is_rate_limited=False, read_only=False, websockets_client=None):
+        self.websockets_client = websockets_client
         self.read_only = read_only
         self._update_delay = 1
         self._update_balance_sleep_time = 7
