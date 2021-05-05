@@ -8,10 +8,12 @@ import trading_bot.ui as ui
 from .side import ASK, BID
 from .constants import STABLECOIN_SYMBOLS
 from trading_bot.utilities import truncate, get_truth
+from .exchange_rate_feeds import get_chainlink_price, get_ars_criptoya
+from pycoingecko import CoinGeckoAPI
 
 thread_lock = threading.Lock()
 ee = EventEmitter()
-
+cg = CoinGeckoAPI()
 
 class Order:
     def __init__(self, price, side, amount, order_id=None, pair=None):
@@ -68,6 +70,9 @@ class OrderbookSide:
     def __repr__(self):
         ui.print_side(self)
         return ''
+
+    def __bool__(self):
+        return True if self._orders else False
 
     def check_if_book_changed(self, new_book):
         if self._orders:
@@ -126,7 +131,7 @@ class Orderbook:
     def get_spread(self, amount_threshold=0):
         first_ask = self.orders[ASK].get_order_above(amount_threshold)
         first_bid = self.orders[BID].get_order_above(amount_threshold)
-        return first_ask.price - first_bid.price
+        return (first_ask.price - first_bid.price)/first_ask.price
 
     def __getitem__(self, key):
         return self.orders[key]
@@ -134,6 +139,9 @@ class Orderbook:
     def __repr__(self):
         ui.print_orderbook(self)
         return ''
+
+    def __bool__(self):
+        return bool(self.orders[ASK]) and bool(self.orders[BID])
 
     def update(self, book):
         if not (ASK in book and BID in book):
@@ -156,10 +164,10 @@ class Currency:
         self.update_balance()
         self.update_global_price()
         self.empty_value = Money(10, currency='USD')
-        # self.reserved_amount_mode = reserved_amount_mode
         self.quote_pairs = []  # pairs where this currency is quote
         self.base_pairs = []  # pairs where this currency is base
         self._exchange_rate_last_update = 0
+
 
     @property
     def balance(self):
@@ -204,7 +212,22 @@ class Currency:
         self.global_price = self.get_global_price()
 
     def get_global_price(self):
-        return cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
+        #  Cryptocompare doesn't know what's the actual free market ARS exchange rate
+        #  https://en.wikipedia.org/wiki/Argentine_currency_controls_(2011%E2%80%932015)#Return_of_the_controls
+        if self.symbol == 'ARS':
+            price = get_ars_criptoya()
+        else:
+            try:
+                price = get_chainlink_price(self.symbol)
+            except ValueError:
+                # Cryptocompare is used as a last resort because it has shitty api limits
+                price = cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
+                if cryptocompare_result is None:
+                    raise ValueError('API LIMIT')
+        return price
+
+    def to(self, currency_symbol):
+        pass
 
     def __repr__(self):
         return self.name
@@ -318,4 +341,4 @@ class Pair:
         return self.status[BID] or self.status[ASK]
 
     def __repr__(self):
-        return f"Pair(ticker={self.ticker}, exchange_client={self.exchange_client}, quote={self.quote}, base={self.base}, minimum_step={self.minimum_step}) "
+        return f"Pair(ticker={self.ticker.upper()})"

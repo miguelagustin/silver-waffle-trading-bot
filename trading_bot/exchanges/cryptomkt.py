@@ -2,12 +2,13 @@ from exceptions import *
 from base.exchange import Order, ee
 from base.side import ASK, BID
 from base.exchange_client import ExchangeClient
+from trading_bot.base.exchange import Pair, Currency
 from tenacity import retry, retry_if_exception, stop_after_attempt
 from utilities import truncate
 from decimal import Decimal
 from cryptomarket.exchange.client import Client as cryptomkt
 from cryptomarket.exchange.error import InvalidRequestError, AuthenticationError, RateLimitExceededError
-
+import requests
 
 
 number_of_attempts = 15
@@ -21,16 +22,14 @@ class Cryptomkt(ExchangeClient):
 
     def __init__(self, public_key=None, secret_key=None):
         self.name = 'Cryptomarket'
-        super().__init__()
-        if public_key is None or secret_key is None:
-            public_key = input('Enter your public key: ')
-            secret_key = input('Enter your private key: ')
-        self._base_client = cryptomkt(public_key, secret_key)
-        self.socket = self._base_client.get_socket()
-        self.socket.logger.disabled = True
-        self.socket.on('open-book', self._handle_socket_orderbook)
-        self.socket.on('balance', self._handle_socket_balance)
-        self.api_type = 'SOCKET'
+        super().__init__(read_only=True if not (public_key and secret_key) else False)
+        if public_key and secret_key:
+            self._base_client = cryptomkt(public_key, secret_key)
+            self.socket = self._base_client.get_socket()
+            self.socket.logger.disabled = True
+            self.socket.on('open-book', self._handle_socket_orderbook)
+            self.socket.on('balance', self._handle_socket_balance)
+        self.base_uri = "https://api.cryptomkt.com/"
         self.timeout = 5
 
     def _handle_socket_orderbook(self, data):
@@ -50,17 +49,30 @@ class Cryptomkt(ExchangeClient):
 
     def subscribe(self, pair):
         self._register_pair_and_currencies(pair)
-        self.socket.subscribe(pair.ticker)
 
-        if self.api_type == 'REST':
+        if self.read_only is True:
             self.__start_threads__(pair)
+        else:
+            self.socket.subscribe(pair.ticker)
 
     def unsubscribe(self, pair):
         self.socket.unsubscribe(pair.ticker)
         pass
 
+    @retry(stop=stop_after_attempt(number_of_attempts))
     def get_book(self, pair):
-        raise NotImplementedError("Use sockets.")
+        response_bid = requests.get(f"{self.base_uri}/v1/book?market={pair.ticker}&type=buy&limit=30", timeout=self.timeout)
+        response_ask = requests.get(f"{self.base_uri}/v1/book?market={pair.ticker}&type=sell&limit=30",
+                                    timeout=self.timeout)
+        try:
+            book_bid = response_bid.json()['data']
+            book_ask = response_ask.json()['data']
+        except KeyError:
+            print(response_bid.content, response_ask.content)
+
+        asks = [{'amount': x['amount'], 'price': x['price']} for x in book_ask]
+        bids = [{'amount': x['amount'], 'price': x['price']} for x in book_bid]
+        return {ASK: asks, BID: bids}
 
     @retry(stop=stop_after_attempt(number_of_attempts))
     def get_active_orders(self, pair):
@@ -107,13 +119,37 @@ class Cryptomkt(ExchangeClient):
             if e.message == 'invalid_request':
                 raise server_error
 
-    def get_ticker(self):
-        pass
-
     def get_list_of_currencies_and_pairs(self):
-        raise not_supported("This exchange doesn't have the endpoints to build the pairs automatically, "
-                            "please initialize the PairManager() class the keyword list_of_pairs= and a list of "
-                            "the pairs you want to implement")
+        # Since cryptomarket doesn't have the endpoints to auto create the pairs, this has to be done manually.
+        ars = Currency(name='Argentinian Peso', symbol='ars', exchange_client=self)
+        brl = Currency(name='Brazilian Real', symbol='brl', exchange_client=self)
+        clp = Currency(name='Chilean Peso', symbol='clp', exchange_client=self)
+
+        eth = Currency(name='Ethereum', symbol='eth', exchange_client=self)
+        xlm = Currency(name='Stellar', symbol='xlm', exchange_client=self)
+        eos = Currency(name='EOS', symbol='eos', exchange_client=self)
+        btc = Currency(name='Bitcoin', symbol='btc', exchange_client=self)
+
+        ethars = Pair(exchange_client=self, ticker='ETHARS', base=eth, quote=ars, minimum_step=2)
+        xlmars = Pair(exchange_client=self, ticker='XLMARS', base=xlm, quote=ars, minimum_step=0.005)
+        eosars = Pair(exchange_client=self, ticker='EOSARS', base=eos, quote=ars, minimum_step=0.05)
+        btcars = Pair(exchange_client=self, ticker='BTCARS', base=btc, quote=ars, minimum_step=20)
+
+        ethbrl = Pair(exchange_client=self, ticker='ETHARS', base=eth, quote=brl, minimum_step=2)
+        xlmbrl = Pair(exchange_client=self, ticker='XLMARS', base=xlm, quote=brl, minimum_step=0.005)
+        eosbrl = Pair(exchange_client=self, ticker='EOSARS', base=eos, quote=brl, minimum_step=0.05)
+        btcbrl = Pair(exchange_client=self, ticker='BTCARS', base=btc, quote=brl, minimum_step=20)
+
+        ethclp = Pair(exchange_client=self, ticker='ETHARS', base=eth, quote=clp, minimum_step=2)
+        xlmclp = Pair(exchange_client=self, ticker='XLMARS', base=xlm, quote=clp, minimum_step=0.005)
+        eosclp = Pair(exchange_client=self, ticker='EOSARS', base=eos, quote=clp, minimum_step=0.05)
+        btcclp = Pair(exchange_client=self, ticker='BTCARS', base=btc, quote=clp, minimum_step=20)
+
+        list_of_pairs = [ethars, xlmars, eosars, btcars, ethbrl, xlmbrl, eosbrl, btcbrl, ethclp, xlmclp, eosclp, btcclp]
+        list_of_currencies = [ars, brl, clp, eth, xlm, eos, btc]
+
+        return list_of_currencies, list_of_pairs
+
 
     def get_history(self, pair):
         pass

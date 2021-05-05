@@ -2,8 +2,7 @@ from trading_bot.exceptions import *
 from trading_bot import base
 from trading_bot.base.exchange import Order
 from trading_bot.base.side import ASK, BID
-from trading_bot.base.exchange_client import ExchangeClient
-from trading_bot.base.websockets_client import WebsocketsClient
+from trading_bot.base.exchange_client import ExchangeClient, WebsocketsClient
 from tenacity import retry, retry_if_exception, stop_after_attempt
 import requests
 from trading_bot.utilities import truncate
@@ -41,7 +40,7 @@ class Bitso(ExchangeClient):
                     new_book.append({'amount': order['a'], 'price': order['r']})
                 book[side] = new_book
             self.pairs_by_ticker[message['book']].orderbook.update(book)
-        else:
+        elif message['type'] != 'ka':
             print(message)
 
     @retry(stop=stop_after_attempt(number_of_attempts))
@@ -94,10 +93,7 @@ class Bitso(ExchangeClient):
         list_of_currencies = set([])
         list_of_pairs = []
         for pair in pairs_response:
-            from pprint import pprint
-
             currencies_symbols = pair['book'].split('_')
-            pprint(currencies_symbols)
             try:
                 base_curr = quote_curr = None
                 for curr in list_of_currencies:

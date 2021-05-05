@@ -8,3 +8,5 @@ tenacity
 cryptomarket
 ordered-set
 forex_python
+websocket-client
+web3

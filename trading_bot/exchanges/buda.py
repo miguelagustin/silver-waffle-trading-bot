@@ -64,7 +64,8 @@ class Buda(ExchangeClient):
         #     secret_key = input('Enter your private key: ')
         self.base_uri = 'https://www.buda.com/api'
         self.api_type = 'REST'
-        self.auth = BudaHMACAuth(public_key, secret_key)
+        if public_key and secret_key:
+            self.auth = BudaHMACAuth(public_key, secret_key)
         self.timeout = 5
 
 
