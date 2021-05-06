@@ -6,13 +6,15 @@ import requests
 import sys
 from .constants import STABLECOIN_SYMBOLS
 from .side import ASK, BID
-
+from random import randint
 import json
 import websocket
 import threading
 
 
 class ExchangeClient(ABC):
+    all_currencies = []
+
     def __init__(self, is_rate_limited=False, read_only=False, websockets_client=None):
         self.websockets_client = websockets_client
         self.read_only = read_only
@@ -28,6 +30,19 @@ class ExchangeClient(ABC):
         self.cooldown = 2
         self.threads = {}
         self.update_book_if_balance_is_empty = True
+
+        currencies, pairs = self.get_list_of_currencies_and_pairs()
+        for pair in pairs:
+            self._register_pair_and_currencies(pair)
+        self.all_currencies += currencies
+        for currency in currencies:
+            currency_count = 0
+            for all_currency in self.all_currencies:
+                if currency.symbol.lower() == all_currency.symbol.lower():
+                    currency_count += 1
+
+            if currency_count == 1:
+                self._launch_thread(self.__update_global_price_daemon__, currency)
 
     @abstractmethod
     def get_book(self, book):
@@ -74,25 +89,24 @@ class ExchangeClient(ABC):
         self.currencies_by_symbol.update({pair.quote.symbol: pair.quote, pair.base.symbol: pair.base})
 
     def _is_symbol_a_cryptocurrency(self, symbol: str):
-        return True if CurrencyCodes().get_symbol(symbol) is None else False
+        return True if CurrencyCodes().get_symbol(symbol.upper()) is None else False
+
+    def _launch_thread(self, thread, pair_or_currency):
+        thread = threading.Thread(target=thread, args=[pair_or_currency])
+        thread.daemon = True
+        if pair_or_currency not in self.threads:
+            self.threads[pair_or_currency] = []
+        self.threads[pair_or_currency].append(thread)
+        thread.start()
 
     def __start_threads__(self, pair):
-        def launch_thread(thread, pair_or_currency):
-            thread = threading.Thread(target=thread, args=[pair_or_currency])
-            thread.daemon = True
-            if pair_or_currency not in self.threads:
-                self.threads[pair_or_currency] = []
-            self.threads[pair_or_currency].append(thread)
-            thread.start()
-
         assert pair in self.pairs
         if not (pair in self.threads and self.threads[pair]):
-            launch_thread(self.__update_book_daemon__, pair)
+            self._launch_thread(self.__update_book_daemon__, pair)
             for currency in [pair.quote, pair.base]:
                 if not (currency in self.threads and self.threads[currency]):
-                    launch_thread(self.__update_global_price_daemon__, currency)
                     if self.read_only is False:
-                        launch_thread(self.__update_balance_daemon__, currency)
+                        self._launch_thread(self.__update_balance_daemon__, currency)
 
     def __update_book_daemon__(self, pair):
         def exit_thread():
@@ -123,15 +137,19 @@ class ExchangeClient(ABC):
             sleep(self._update_balance_sleep_time)
 
     def __update_global_price_daemon__(self, currency):
+        sleep(randint(20, 80))
         while True:
-            if currency.symbol in STABLECOIN_SYMBOLS:
-                currency.global_price = 1
-                sys.exit()  # close the daemon
+            currencies_to_update = []
+            for all_currency in self.all_currencies:
+                if currency.symbol.lower() == all_currency.symbol.lower():
+                    currencies_to_update.append(all_currency)
             try:
-                currency.update_global_price()
-                sleep(120)
+                price = currency.get_global_price()
             except (requests.exceptions.HTTPError, UnboundLocalError):
                 return
+            for currency in currencies_to_update:
+                currency.global_price = price
+            sleep(120)
 
     def __str__(self):
         return self.name

@@ -2,7 +2,7 @@ import operator
 import exceptions
 import base
 import ctypes
-
+import sys, os
 
 def get_truth(inp, relate, out):
     ops = {'>': operator.gt,
@@ -70,3 +70,12 @@ def terminate_thread(thread):
         # and you should call it again with exc=NULL to revert the effect"""
         ctypes.pythonapi.PyThreadState_SetAsyncExc(thread.ident, None)
         raise SystemError("PyThreadState_SetAsyncExc failed")
+
+
+# Disable
+def block_print():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def unblock_print():
+    sys.stdout = sys.__stdout__

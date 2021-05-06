@@ -1,10 +1,10 @@
-from exceptions import *
-from base.exchange import Order, ee
-from base.side import ASK, BID
-from base.exchange_client import ExchangeClient
+from trading_bot.exceptions import *
+from trading_bot.base.exchange import Order, ee
+from trading_bot.base.side import ASK, BID
+from trading_bot.base.exchange_client import ExchangeClient
 from trading_bot.base.exchange import Pair, Currency
 from tenacity import retry, retry_if_exception, stop_after_attempt
-from utilities import truncate
+from trading_bot.utilities import truncate
 from decimal import Decimal
 from cryptomarket.exchange.client import Client as cryptomkt
 from cryptomarket.exchange.error import InvalidRequestError, AuthenticationError, RateLimitExceededError
@@ -22,7 +22,6 @@ class Cryptomkt(ExchangeClient):
 
     def __init__(self, public_key=None, secret_key=None):
         self.name = 'Cryptomarket'
-        super().__init__(read_only=True if not (public_key and secret_key) else False)
         if public_key and secret_key:
             self._base_client = cryptomkt(public_key, secret_key)
             self.socket = self._base_client.get_socket()
@@ -31,6 +30,8 @@ class Cryptomkt(ExchangeClient):
             self.socket.on('balance', self._handle_socket_balance)
         self.base_uri = "https://api.cryptomkt.com/"
         self.timeout = 5
+
+        super().__init__(read_only=True if not (public_key and secret_key) else False)
 
     def _handle_socket_orderbook(self, data):
         for ticker, order_data in data.items():

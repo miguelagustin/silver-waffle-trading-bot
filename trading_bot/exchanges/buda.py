@@ -57,7 +57,6 @@ def is_not_local_exception(exception):
 
 class Buda(ExchangeClient):
     def __init__(self, public_key=None, secret_key=None):
-        super().__init__(read_only=True if not (public_key and secret_key) else False)
         self.name = 'Buda'
         # if not read_only and (public_key is None or secret_key is None):
         #     public_key = input('Enter your public key: ')
@@ -67,6 +66,7 @@ class Buda(ExchangeClient):
         if public_key and secret_key:
             self.auth = BudaHMACAuth(public_key, secret_key)
         self.timeout = 5
+        super().__init__(read_only=True if not (public_key and secret_key) else False)
 
 
     @retry(stop=stop_after_attempt(number_of_attempts))

@@ -7,13 +7,15 @@ import cryptocompare
 import trading_bot.ui as ui
 from .side import ASK, BID
 from .constants import STABLECOIN_SYMBOLS
-from trading_bot.utilities import truncate, get_truth
+from trading_bot.utilities import truncate, get_truth, block_print, unblock_print
 from .exchange_rate_feeds import get_chainlink_price, get_ars_criptoya
-from pycoingecko import CoinGeckoAPI
+import google_currency
+import json
 
 thread_lock = threading.Lock()
 ee = EventEmitter()
-cg = CoinGeckoAPI()
+google_currency.logger.disabled = True
+
 
 class Order:
     def __init__(self, price, side, amount, order_id=None, pair=None):
@@ -212,18 +214,23 @@ class Currency:
         self.global_price = self.get_global_price()
 
     def get_global_price(self):
-        #  Cryptocompare doesn't know what's the actual free market ARS exchange rate
+        if self.symbol.upper() in STABLECOIN_SYMBOLS:
+            return 1
+
+        #  Cryptocompare and Google don't know what's the actual free market ARS exchange rate
         #  https://en.wikipedia.org/wiki/Argentine_currency_controls_(2011%E2%80%932015)#Return_of_the_controls
-        if self.symbol == 'ARS':
+        if self.symbol.upper() == 'ARS':
             price = get_ars_criptoya()
         else:
             try:
                 price = get_chainlink_price(self.symbol)
             except ValueError:
-                # Cryptocompare is used as a last resort because it has shitty api limits
-                price = cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
-                if cryptocompare_result is None:
-                    raise ValueError('API LIMIT')
+                result = json.loads(google_currency.convert(self.symbol, 'usd', 1))
+                if result['converted'] is True:
+                    price = float(result['amount'])
+                else:
+                    # Cryptocompare is used as a last resort because it has shitty api limits
+                    price = cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
         return price
 
     def to(self, currency_symbol):
@@ -259,7 +266,7 @@ class Pair:
         self.cancel_orders(ASK)
         self.cancel_orders(BID)
 
-    def set_side_status(self, side: Side, new_status: bool, _launch_event = True) -> None:
+    def set_side_status(self, side: Side, new_status: bool, _launch_event=True) -> None:
         self.status[side] = new_status
         if new_status is True:
             self.exchange_client.subscribe(self)

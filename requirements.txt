@@ -10,3 +10,4 @@ ordered-set
 forex_python
 websocket-client
 web3
+google-currency

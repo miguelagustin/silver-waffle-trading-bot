@@ -20,9 +20,6 @@ def is_not_local_exception(exception):
 
 class Bitso(ExchangeClient):
     def __init__(self, public_key=None, secret_key=None):
-        super().__init__(read_only=True if not (public_key and secret_key) else False,
-                         websockets_client=WebsocketsClient('wss://ws.bitso.com', self))
-
         self.name = 'Bitso'
         # if not read_only and (public_key is None or secret_key is None):
         #     public_key = input('Enter your public key: ')
@@ -31,8 +28,11 @@ class Bitso(ExchangeClient):
         self.api_type = 'REST'
         self.timeout = 5
 
+        super().__init__(read_only=True if not (public_key and secret_key) else False,
+                         websockets_client=WebsocketsClient('wss://ws.bitso.com', self))
+
     def websocket_handler(self, message):
-        if message['type'] == 'orders':
+        if message['type'] == 'orders' and 'payload' in message:
             book = {ASK: None, BID: None}
             for side in [ASK, BID]:
                 new_book = []
@@ -40,8 +40,6 @@ class Bitso(ExchangeClient):
                     new_book.append({'amount': order['a'], 'price': order['r']})
                 book[side] = new_book
             self.pairs_by_ticker[message['book']].orderbook.update(book)
-        elif message['type'] != 'ka':
-            print(message)
 
     @retry(stop=stop_after_attempt(number_of_attempts))
     def get_book(self, pair):
