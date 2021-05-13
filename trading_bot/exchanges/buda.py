@@ -3,14 +3,14 @@ from trading_bot import base
 from trading_bot.base.exchange import Order
 from trading_bot.base.side import ASK, BID
 from trading_bot.base.exchange_client import ExchangeClient
-from tenacity import retry, retry_if_exception, stop_after_attempt
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 import requests
 from trading_bot.utilities import truncate
 import base64
 import hmac
 import time
 import requests.auth
-
+import simplejson
 
 class BudaHMACAuth(requests.auth.AuthBase):
     """Adjunta la autenticación HMAC de Buda al objeto Request."""
@@ -48,7 +48,7 @@ class BudaHMACAuth(requests.auth.AuthBase):
         return r
 
 
-number_of_attempts = 1
+number_of_attempts = 100
 
 
 def is_not_local_exception(exception):
@@ -69,7 +69,7 @@ class Buda(ExchangeClient):
         super().__init__(read_only=True if not (public_key and secret_key) else False)
 
 
-    @retry(stop=stop_after_attempt(number_of_attempts))
+    @retry(stop=stop_after_attempt(number_of_attempts),wait=wait_fixed(0.2))
     def get_book(self, pair):
         # try:
         response = requests.get(f"{self.base_uri}/v2/markets/{pair.ticker}/order_book", timeout=self.timeout)
@@ -134,6 +134,7 @@ class Buda(ExchangeClient):
     def unsubscribe(self, pair):
         pass
 
+    @retry(retry=retry_if_exception(is_not_local_exception), stop=stop_after_attempt(number_of_attempts))
     def get_list_of_currencies_and_pairs(self, auto_register=False):
         response = requests.get(f"{self.base_uri}/v2/markets", timeout=self.timeout).json()
         pairs = response['markets']

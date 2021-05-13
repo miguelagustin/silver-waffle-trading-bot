@@ -107,6 +107,7 @@ class Orderbook:
     def __init__(self, pair):
         self.orders = {ASK: OrderbookSide(ASK, pair), BID: OrderbookSide(BID, pair), 'updated_id': None}
         self.pair = pair
+        self._check_book = True
 
     def get_orders_above(self, amount_threshold):
         results = {ASK: self.orders[ASK].get_order_above(amount_threshold),
@@ -139,7 +140,10 @@ class Orderbook:
         return self.orders[key]
 
     def __repr__(self):
-        ui.print_orderbook(self)
+        try:
+            ui.print_orderbook(self)
+        except TypeError:
+            print('[]')
         return ''
 
     def __bool__(self):
@@ -148,14 +152,18 @@ class Orderbook:
     def update(self, book):
         if not (ASK in book and BID in book):
             raise ValueError('Mising data in book')
+        if self._check_book is True:
+            ask_changed = self.orders[ASK].check_if_book_changed(book[ASK])
+            bid_changed = self.orders[BID].check_if_book_changed(book[BID])
 
-        ask_changed = self.orders[ASK].check_if_book_changed(book[ASK])
-        bid_changed = self.orders[BID].check_if_book_changed(book[BID])
-
-        if ask_changed or bid_changed:
+            if ask_changed or bid_changed:
+                self.orders[ASK].set_orders(book[ASK])
+                self.orders[BID].set_orders(book[BID])
+                ee.emit('book_changed', self.pair)
+        elif self._check_book is False:
             self.orders[ASK].set_orders(book[ASK])
             self.orders[BID].set_orders(book[BID])
-            ee.emit('book_changed', self.pair)
+
 
 class Currency:
     def __init__(self, *, name, symbol, exchange_client):
@@ -169,7 +177,6 @@ class Currency:
         self.quote_pairs = []  # pairs where this currency is quote
         self.base_pairs = []  # pairs where this currency is base
         self._exchange_rate_last_update = 0
-
 
     @property
     def balance(self):
@@ -211,10 +218,13 @@ class Currency:
         return False
 
     def update_global_price(self):
-        self.global_price = self.get_global_price()
+        try:
+            self.global_price = self.get_global_price()
+        except Exception:
+            self.global_price = 0
 
     def get_global_price(self):
-        if self.symbol.upper() in STABLECOIN_SYMBOLS:
+        if self.symbol.upper() in STABLECOIN_SYMBOLS or self.symbol.upper() == 'USD':
             return 1
 
         #  Cryptocompare and Google don't know what's the actual free market ARS exchange rate
@@ -229,12 +239,12 @@ class Currency:
                 if result['converted'] is True:
                     price = float(result['amount'])
                 else:
-                    # Cryptocompare is used as a last resort because it has shitty api limits
+                    # Cryptocompare is used as a last resort because it has shitty rate limits
                     price = cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
         return price
 
-    def to(self, currency_symbol):
-        pass
+    def to(self, currency):
+        return currency.global_price/self.global_price
 
     def __repr__(self):
         return self.name
@@ -247,6 +257,7 @@ class Currency:
 
     def __ne__(self, other):
         return not (self == other)
+
 
 class Pair:
     def __init__(self, *, exchange_client: ExchangeClient, ticker: int, quote: Currency, base: Currency,
@@ -272,11 +283,13 @@ class Pair:
             self.exchange_client.subscribe(self)
         elif new_status is False and self.status[side.get_opposite()] is False:
             self.exchange_client.unsubscribe(self)
+            self.orderbook = Orderbook(self)
 
         self.update_active_orders()
         self.cancel_orders(side)
         self.quote.update_balance()
         self.base.update_balance()
+
         if _launch_event:
             ee.emit('status_changed', self)
 
@@ -290,7 +303,7 @@ class Pair:
         self.orders[ASK] = sorted(result[ASK])
         self.orders[BID] = sorted(result[BID])
 
-    def create_limit_order(self, amount=None, side=None, limit_price=None):
+    def create_limit_order(self, amount=None, side=None, limit_price=None) -> Order:
         if self.exchange_client.read_only is True:
             return
         assert amount and side and limit_price
