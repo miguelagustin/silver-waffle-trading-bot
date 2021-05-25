@@ -2,7 +2,7 @@ from __future__ import annotations
 from pymitter import EventEmitter
 import threading
 from time import time
-from money import Money
+import money
 import cryptocompare
 import trading_bot.ui as ui
 from .side import ASK, BID
@@ -11,6 +11,10 @@ from trading_bot.utilities import truncate, get_truth, block_print, unblock_prin
 from .exchange_rate_feeds import get_chainlink_price, get_ars_criptoya
 import google_currency
 import json
+import re
+
+# We change money's currency regex in order for it to support a wider range of tickers
+money.money.REGEX_CURRENCY_CODE = re.compile("^[A-Z]{2,10}$")
 
 thread_lock = threading.Lock()
 ee = EventEmitter()
@@ -173,7 +177,7 @@ class Currency:
         self._balance = {}
         self.update_balance()
         self.update_global_price()
-        self.empty_value = Money(10, currency='USD')
+        self.empty_value = money.Money(10, currency='USD')
         self.quote_pairs = []  # pairs where this currency is quote
         self.base_pairs = []  # pairs where this currency is base
         self._exchange_rate_last_update = 0
@@ -189,8 +193,8 @@ class Currency:
         if currency in STABLECOIN_SYMBOLS:
             currency = 'USD'
         available_balance, locked_balance = new_balance
-        locked_balance = Money(locked_balance, currency=currency)
-        available_balance = Money(available_balance, currency=currency)
+        locked_balance = money.Money(locked_balance, currency=currency)
+        available_balance = money.Money(available_balance, currency=currency)
         self._balance = {'available_balance': available_balance, 'locked_balance': locked_balance,
                          'total_balance': locked_balance + available_balance}
 

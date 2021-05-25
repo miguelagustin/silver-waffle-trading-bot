@@ -48,7 +48,7 @@ class BudaHMACAuth(requests.auth.AuthBase):
         return r
 
 
-number_of_attempts = 100
+number_of_attempts = 1
 
 
 def is_not_local_exception(exception):

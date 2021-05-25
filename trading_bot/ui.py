@@ -2,7 +2,7 @@ from colorama import Fore, Back, Style, init
 import os
 from utilities import truncate
 import platform
-from base.side import ASK, BID
+from trading_bot.base.side import ASK, BID
 
 init(autoreset=True, convert=True if platform.system() == 'Windows' else False) # this is so that colors work on Linux and Windows
 def print_side(orderbook):

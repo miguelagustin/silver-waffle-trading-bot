@@ -23,7 +23,6 @@ abi = '[{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name"
       '"type":"function"},{"inputs":[],"name":"version","outputs":[{"internalType":"uint256","name":"",' \
       '"type":"uint256"}],"stateMutability":"view","type":"function"}]'
 
-
 def get_chainlink_price(symbol):
     def get_price(address):
         contract = web3.eth.contract(address=address, abi=abi)
