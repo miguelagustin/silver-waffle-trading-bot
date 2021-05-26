@@ -1,5 +1,4 @@
 import threading
-from forex_python.converter import CurrencyCodes
 from abc import ABC, abstractmethod
 from time import sleep, time
 import requests
@@ -155,9 +154,6 @@ class ExchangeClient(ABC):
         self.currencies_by_symbol.update({pair.quote.symbol: pair.quote, pair.base.symbol: pair.base})
         if socket_settings:
             self.socket_functionality[pair] = socket_settings
-
-    def _is_symbol_a_cryptocurrency(self, symbol: str):
-        return True if CurrencyCodes().get_symbol(symbol.upper()) is None else False
 
     def _launch_thread(self, thread, pair_or_currency):
         thread = threading.Thread(target=thread, args=[pair_or_currency])

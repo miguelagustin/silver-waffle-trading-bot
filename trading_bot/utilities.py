@@ -3,6 +3,8 @@ import exceptions
 import base
 import ctypes
 import sys, os
+from trading_bot.base.constants import FIAT_SYMBOLS
+
 
 def get_truth(inp, relate, out):
     ops = {'>': operator.gt,
@@ -71,6 +73,8 @@ def terminate_thread(thread):
         ctypes.pythonapi.PyThreadState_SetAsyncExc(thread.ident, None)
         raise SystemError("PyThreadState_SetAsyncExc failed")
 
+def _is_symbol_a_cryptocurrency(self, symbol: str):
+    return False if symbol in FIAT_SYMBOLS else True
 
 # Disable
 def block_print():

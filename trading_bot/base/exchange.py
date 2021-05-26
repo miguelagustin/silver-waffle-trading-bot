@@ -7,18 +7,19 @@ import cryptocompare
 import trading_bot.ui as ui
 from .side import ASK, BID
 from .constants import STABLECOIN_SYMBOLS
-from trading_bot.utilities import truncate, get_truth, block_print, unblock_print
+from trading_bot.utilities import truncate, get_truth, _is_symbol_a_cryptocurrency
 from .exchange_rate_feeds import get_chainlink_price, get_ars_criptoya
 import google_currency
 import json
 import re
-
+import ccxt
 # We change money's currency regex in order for it to support a wider range of tickers
 money.money.REGEX_CURRENCY_CODE = re.compile("^[A-Z]{2,10}$")
 
 thread_lock = threading.Lock()
 ee = EventEmitter()
 google_currency.logger.disabled = True
+binance_oracle = ccxt.binance()
 
 
 class Order:
@@ -231,18 +232,23 @@ class Currency:
         if self.symbol.upper() in STABLECOIN_SYMBOLS or self.symbol.upper() == 'USD':
             return 1
 
-        #  Cryptocompare and Google don't know what's the actual free market ARS exchange rate
-        #  https://en.wikipedia.org/wiki/Argentine_currency_controls_(2011%E2%80%932015)#Return_of_the_controls
-        if self.symbol.upper() == 'ARS':
-            price = get_ars_criptoya()
+        if not _is_symbol_a_cryptocurrency(self.symbol.upper()):
+            #  Cryptocompare and Google don't know what's the actual free market ARS exchange rate
+            #  https://en.wikipedia.org/wiki/Argentine_currency_controls_(2011%E2%80%932015)#Return_of_the_controls
+            if self.symbol.upper() == 'ARS':
+                price = get_ars_criptoya()
+            result = json.loads(google_currency.convert(self.symbol, 'usd', 1))
+            if result['converted'] is True:
+                price = float(result['amount'])
+            else:
+                price = cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
         else:
             try:
                 price = get_chainlink_price(self.symbol)
             except ValueError:
-                result = json.loads(google_currency.convert(self.symbol, 'usd', 1))
-                if result['converted'] is True:
-                    price = float(result['amount'])
-                else:
+                try:
+                    price = binance_oracle.fetch_ticker(f"{self.symbol.upper()}/USDT")['bid']
+                except ccxt.base.errors.BadSymbol:
                     # Cryptocompare is used as a last resort because it has shitty rate limits
                     price = cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
         return price
