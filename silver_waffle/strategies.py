@@ -1,5 +1,5 @@
-from base.exchange import thread_lock, Pair
-from base.side import ASK, BID
+from silver_waffle.base.exchange import thread_lock, Pair
+from silver_waffle.base.side import ASK, BID
 from time import sleep, time
 import logging
 from utilities import get_result, get_truth, terminate_thread

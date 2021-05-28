@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='trading_bot',
-    version='0.1',
-    packages=['trading_bot', 'trading_bot.base', 'trading_bot.exchanges'],
+    name='silver_waffle',
+    version='0.2',
+    packages=['silver_waffle', 'silver_waffle.base', 'silver_waffle.exchanges'],
     url='',
     license='',
     author='miguel',
     author_email='miguelagustin322@gmail.com',
-    description='Trading bot'
+    description='Framework for interacting with markets of several exchanges'
 )

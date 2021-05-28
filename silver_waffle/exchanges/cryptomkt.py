@@ -1,10 +1,10 @@
-from trading_bot.exceptions import *
-from trading_bot.base.exchange import Order, ee
-from trading_bot.base.side import ASK, BID
-from trading_bot.base.exchange_client import ExchangeClient
-from trading_bot.base.exchange import Pair, Currency
+from silver_waffle.exceptions import *
+from silver_waffle.base.exchange import Order, ee
+from silver_waffle.base.side import ASK, BID
+from silver_waffle.base.exchange_client import ExchangeClient
+from silver_waffle.base.exchange import Pair, Currency
 from tenacity import retry, retry_if_exception, stop_after_attempt
-from trading_bot.utilities import truncate
+from silver_waffle.utilities import truncate
 from decimal import Decimal
 from cryptomarket.exchange.client import Client as cryptomkt
 from cryptomarket.exchange.error import InvalidRequestError, AuthenticationError, RateLimitExceededError

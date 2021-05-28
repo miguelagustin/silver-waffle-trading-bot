@@ -1,10 +1,9 @@
-import threading
-from abc import ABC, abstractmethod
+# from abc import ABC, abstractmethod
 from time import sleep, time
 import requests
 import sys
-from trading_bot.base.side import ASK, BID
-from trading_bot.base.exchange import Order, Currency, Pair
+from silver_waffle.base.side import ASK, BID
+from silver_waffle.base.exchange import Order, Currency, Pair
 from random import randint
 import json
 import websocket
@@ -13,7 +12,7 @@ from tenacity import RetryError, retry, stop_after_attempt
 
 number_of_attempts = 50
 
-class ExchangeClient(ABC):
+class ExchangeClient():
     all_currencies = []
 
     def __init__(self, read_only=False, websockets_client=None,
@@ -61,6 +60,9 @@ class ExchangeClient(ABC):
 
     @retry(stop=stop_after_attempt(number_of_attempts))
     def get_book(self, pair):
+        """Returns a dictionary containing the buy and sell orders.
+
+        return format: {ASK: list_of_asks, BID: list_of_bids}"""
         book = self.ccxt_client.fetch_order_book(pair.ticker)
         asks = [{'amount': x[1], 'price': x[0]} for x in book['asks']]
         bids = [{'amount': x[1], 'price': x[0]} for x in book['bids']]
@@ -69,6 +71,7 @@ class ExchangeClient(ABC):
 
     @retry(stop=stop_after_attempt(number_of_attempts))
     def get_balance(self, currency):
+        """Returns the available and locked balance of a currency, in that order"""
         balances = self.ccxt_client.fetch_balance()
         try:
             return balances[currency.symbol]['free'], balances[currency.symbol]['used']

@@ -1,11 +1,11 @@
-from trading_bot.exceptions import *
-from trading_bot import base
-from trading_bot.base.exchange import Order
-from trading_bot.base.side import ASK, BID
-from trading_bot.base.exchange_client import ExchangeClient
+from silver_waffle.exceptions import *
+from silver_waffle import base
+from silver_waffle.base.exchange import Order
+from silver_waffle.base.side import ASK, BID
+from silver_waffle.base.exchange_client import ExchangeClient
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_fixed
 import requests
-from trading_bot.utilities import truncate
+from silver_waffle.utilities import truncate
 import base64
 import hmac
 import time

@@ -1,6 +1,6 @@
-from base.side import ASK, BID
+from silver_waffle.base.side import ASK, BID
 from ordered_set import OrderedSet
-import base.exchange
+import silver_waffle.base.exchange
 
 class PairManager:
     def __init__(self, exchange_client=None, list_of_pairs=None):

@@ -1,13 +1,12 @@
 from __future__ import annotations
 from pymitter import EventEmitter
 import threading
-from time import time
 import money
 import cryptocompare
-import trading_bot.ui as ui
+import silver_waffle.ui as ui
 from .side import ASK, BID
 from .constants import STABLECOIN_SYMBOLS
-from trading_bot.utilities import truncate, get_truth, _is_symbol_a_cryptocurrency
+from silver_waffle.utilities import truncate, get_truth, _is_symbol_a_cryptocurrency
 from .exchange_rate_feeds import get_chainlink_price, get_ars_criptoya
 import google_currency
 import json
@@ -91,6 +90,7 @@ class OrderbookSide:
         self._orders = book
 
     def get_order_above(self, amount_threshold):
+        """ Returns the first order found with an amount higher than amount_threshold, excluding your own orders"""
         for order in self:
             if order.amount < amount_threshold / self.pair.base.global_price:
                 continue
@@ -99,6 +99,7 @@ class OrderbookSide:
             return order
 
     def get_orders_up_until(self, price_threshold):
+        """ Returns all the orders found with a price higher or lower (depends on the side) than price_threshold"""
         results = []
         for order in self:
             if get_truth(order.price, '<' if self.side == ASK else '>', price_threshold):
@@ -210,6 +211,7 @@ class Currency:
         pass
 
     def balance_is_empty(self):
+        """Returns True if the currency balance is empty (and emits a 'balance_is_empty' event), False if it isn't"""
         if self.balance['total_balance'].amount < float(self.empty_value.amount) * 1/self.global_price:
             ee.emit('balance_is_empty')
             return True
@@ -217,6 +219,7 @@ class Currency:
             return False
 
     def has_an_active_pair(self):
+        """Returns True if there are >0 pairs enabled, False if there aren't"""
         for pair in self.base_pairs + self.quote_pairs:
             if pair:
                 return True
@@ -229,6 +232,7 @@ class Currency:
             self.global_price = 0
 
     def get_global_price(self):
+        """Gets how much this currency is worth, in terms of 1 USD."""
         if self.symbol.upper() in STABLECOIN_SYMBOLS or self.symbol.upper() == 'USD':
             return 1
 
@@ -254,6 +258,7 @@ class Currency:
         return price
 
     def to(self, currency):
+        """Converts this currency to another one."""
         return currency.global_price/self.global_price
 
     def __repr__(self):
@@ -288,6 +293,16 @@ class Pair:
         self.cancel_orders(BID)
 
     def set_side_status(self, side: Side, new_status: bool, _launch_event=True) -> None:
+        """Sets the status of this pair. Each pair has two statuses, according to its two sides, BID and ASK.
+        At least one side needs to be enabled in order for the orderbook and the pair currencies balance to be updated.
+        It also determines the truth value of this object. If at least one side is enabled, the truth value of this object will be True.
+
+        if pair: #will evaluate as True if at least one side is enabled.
+            print("This pair is enabled")
+
+        It also emits a 'status_changed' event whenever there is a change. This can be disabled by passing the keyword argument
+        _launch_event as False.
+        """
         self.status[side] = new_status
         if new_status is True:
             self.exchange_client.subscribe(self)
@@ -307,6 +322,7 @@ class Pair:
         self.set_side_status(side, False if self.status[side] is True else True)
 
     def update_active_orders(self):
+        """Updates the current active orders in the self.orders attribute"""
         if self.exchange_client.read_only is True:
             return
         result = self.exchange_client.get_active_orders(self)
@@ -338,6 +354,7 @@ class Pair:
             pass
 
     def cancel_orders(self, side):
+        """Cancels all the orders of the given side"""
         if self.exchange_client.read_only is True:
             return
         while self.orders[side]:
