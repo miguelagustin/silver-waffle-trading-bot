@@ -1,3 +1,4 @@
+from __future__ import annotations
 from silver_waffle.base.side import ASK, BID
 from ordered_set import OrderedSet
 import silver_waffle.base.exchange
