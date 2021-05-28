@@ -119,11 +119,19 @@ class ExchangeClient():
         for pair in markets:
             if pair['active'] is False:
                 continue
-
-            quote_symbol = pair['info']['quoteAsset']
-            base_symbol = pair['info']['baseAsset'].replace(quote_symbol, '')
+            try:
+                quote_symbol = pair['info']['quoteAsset']
+                base_symbol = pair['info']['baseAsset'].replace(quote_symbol, '')
+            except KeyError:
+                quote_symbol = pair['info']['quote']
+                base_symbol = pair['info']['base'].replace(quote_symbol, '')
             base_curr = quote_curr = None
-            ticker = f"{base_symbol}/{quote_symbol}"
+            ticker = pair['symbol']
+            try:
+                minimum_step = pair['info']['tickSize']
+            except KeyError:
+                minimum_step = pair['info']['price_tick']
+
             if whitelist is not None and ticker not in whitelist:
                 continue
             for curr in list_of_currencies:
@@ -138,7 +146,7 @@ class ExchangeClient():
                 quote_curr = Currency(name=quote_symbol, symbol=quote_symbol,
                                       exchange_client=self)
             pair = Pair(ticker=ticker, quote=quote_curr, base=base_curr,
-                        minimum_step=pair['info']['tickSize'], exchange_client=self)
+                        minimum_step=minimum_step, exchange_client=self)
             list_of_pairs.append(pair)
             list_of_currencies.add(quote_curr)
             list_of_currencies.add(base_curr)
