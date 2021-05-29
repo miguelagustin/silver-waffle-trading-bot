@@ -10,3 +10,4 @@ ordered-set
 websocket-client
 web3
 google-currency
+ccxt

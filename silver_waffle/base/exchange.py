@@ -51,11 +51,12 @@ class OrderbookSide:
         self._orders = []
 
     def __getitem__(self, i):
+        # we lazily create the Order objects to save CPU cycles
         if isinstance(i, slice):
-            return [Order(order['price'], self.side, order['amount']) for order in self._orders[i]]
+            return [Order(order['price'], self.side, order['amount'], pair=self.pair) for order in self._orders[i]]
         else:
             order = self._orders[i]
-            return Order(order['price'], self.side, order['amount'])
+            return Order(order['price'], self.side, order['amount'], pair=self.pair)
 
     def __len__(self):
         return len(self._orders)

@@ -7,10 +7,11 @@ from silver_waffle.base.exchange import Order, Currency, Pair
 from random import randint
 import json
 import websocket
+import ccxt
 import threading
 from tenacity import RetryError, retry, stop_after_attempt
 
-number_of_attempts = 50
+number_of_attempts = 1
 
 class ExchangeClient():
     all_currencies = []
@@ -37,11 +38,9 @@ class ExchangeClient():
         self.update_book_if_balance_is_empty = True
 
         self.socket_functionality = {}
-        try:
-            currencies, pairs = self.get_list_of_currencies_and_pairs(whitelist=whitelist)
-        except RetryError:
-            print(self.name + ' is down')
-            return
+
+        currencies, pairs = self.get_list_of_currencies_and_pairs(whitelist=whitelist)
+
         for pair in pairs:
             self._register_pair_and_currencies(pair, socket_settings=socket_settings)
             if self.read_only is False:
@@ -89,7 +88,12 @@ class ExchangeClient():
 
     @retry(stop=stop_after_attempt(number_of_attempts))
     def cancel_order(self, order):
-        self.ccxt_client.cancel_order(order.order_id)
+        try:
+            self.ccxt_client.cancel_order(order.order_id, order.pair.ticker)
+        except ccxt.base.errors.ArgumentsRequired:
+            print(order.pair.ticker)
+
+
 
     def create_order(self, pair, amount, side, limit_price=None):
         if limit_price is None:
