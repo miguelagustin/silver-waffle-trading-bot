@@ -144,7 +144,15 @@ class Orderbook:
         return (first_ask.price - first_bid.price)/first_ask.price
 
     def __getitem__(self, key):
-        return self.orders[key]
+        if isinstance(key, str):
+            if key.upper() == 'ASK' or key.upper() == 'SELL':
+                return self.orders[ASK]
+            elif key.upper() == 'BID' or key.upper() == 'BUY':
+                return self.orders[BID]
+        elif key is ASK or key is BID:
+            return self.orders[key]
+        else:
+            raise IndexError
 
     def __repr__(self):
         try:
@@ -256,6 +264,7 @@ class Currency:
                 except ccxt.base.errors.BadSymbol:
                     # Cryptocompare is used as a last resort because it has shitty rate limits
                     price = cryptocompare.get_price(self.symbol, currency='USD')[self.symbol.upper()]['USD']
+
         return price
 
     def to(self, currency):
