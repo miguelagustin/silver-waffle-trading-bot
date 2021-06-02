@@ -10,22 +10,29 @@ import websocket
 import ccxt
 import threading
 from tenacity import RetryError, retry, stop_after_attempt
+import importlib
 
 number_of_attempts = 1
 
 class ExchangeClient():
     all_currencies = []
 
-    def __init__(self, read_only=False, websockets_client=None,
+    def __init__(self, exchange: str, websockets_client=None,
                  socket_settings={'book': True, 'orders': True, 'transactions': True},
-                 ccxt_client=None, whitelist=None):
-        if ccxt_client:
+                 ccxt_client=None, whitelist=None, creds=None):
+        try:
             self.ccxt_client = getattr(ccxt, ccxt_client)()
+        except AttributeError:
+            try:
+                module = importlib.import_module(f'silver_waffle.exchanges.{exchange.lower()}')
+                return getattr(module, exchange.lower().capitalize())()
+            except (ModuleNotFoundError, AttributeError):
+                raise ValueError('Exchange not found')
         self.websockets_client = websockets_client
-        if self.ccxt_client:
-            self.read_only = False
+        if creds is None:
+            self.read_only = True
         else:
-            self.read_only = read_only
+            self.read_only = False
         self._update_book_sleep_time = 1
         self._update_balance_sleep_time = 7
         self.pairs = set()
