@@ -4,10 +4,10 @@ import threading
 import money
 import cryptocompare
 import silver_waffle.ui as ui
-from .side import ASK, BID
-from .constants import STABLECOIN_SYMBOLS
+from silver_waffle.base.side import ASK, BID
+from silver_waffle.base.constants import STABLECOIN_SYMBOLS
 from silver_waffle.utilities import truncate, get_truth, _is_symbol_a_cryptocurrency
-from .exchange_rate_feeds import get_chainlink_price, get_ars_criptoya
+from silver_waffle.base.exchange_rate_feeds import get_chainlink_price, get_ars_criptoya
 import google_currency
 import json
 import re
@@ -185,9 +185,9 @@ class Currency:
         self.name = name
         self.exchange_client = exchange_client
         self.symbol = symbol
-        self._balance = {}
-        self.update_balance()
-        self.update_global_price()
+        self._balance = {'available_balance':None, 'locked_balance': None, 'total_balance': None}
+        # self.update_balance()
+        self.global_price = 0
         self.empty_value = money.Money(10, currency='USD')
         self.quote_pairs = []  # pairs where this currency is quote
         self.base_pairs = []  # pairs where this currency is base
@@ -298,9 +298,9 @@ class Pair:
         self.status = {ASK: False, BID: False}
         self.ticker = ticker
 
-        self.update_active_orders()
-        self.cancel_orders(ASK)
-        self.cancel_orders(BID)
+        # self.update_active_orders()
+        # self.cancel_orders(ASK)
+        # self.cancel_orders(BID)
 
     def set_side_status(self, side: Side, new_status: bool, _launch_event=True) -> None:
         """Sets the status of this pair. Each pair has two statuses, according to its two sides, BID and ASK.

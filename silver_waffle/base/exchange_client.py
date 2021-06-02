@@ -19,7 +19,8 @@ class ExchangeClient():
     def __init__(self, read_only=False, websockets_client=None,
                  socket_settings={'book': True, 'orders': True, 'transactions': True},
                  ccxt_client=None, whitelist=None):
-        self.ccxt_client = ccxt_client
+        if ccxt_client:
+            self.ccxt_client = getattr(ccxt, ccxt_client)()
         self.websockets_client = websockets_client
         if self.ccxt_client:
             self.read_only = False
@@ -93,8 +94,6 @@ class ExchangeClient():
         except ccxt.base.errors.ArgumentsRequired:
             print(order.pair.ticker)
 
-
-
     def create_order(self, pair, amount, side, limit_price=None):
         if limit_price is None:
             if side is ASK:
@@ -131,10 +130,19 @@ class ExchangeClient():
                 base_symbol = pair['info']['base'].replace(quote_symbol, '')
             base_curr = quote_curr = None
             ticker = pair['symbol']
-            try:
-                minimum_step = pair['info']['tickSize']
-            except KeyError:
-                minimum_step = pair['info']['price_tick']
+
+            #CCXT is inconsistent across exchanges so we have to do this
+
+            for dict_index in ['tickSize', 'price_tick']:
+                try:
+                    minimum_step = pair['info'][dict_index]
+                    break
+                except KeyError:
+                    try:
+                        minimum_step = pair['info']['filters'][0][dict_index]
+                        break
+                    except KeyError:
+                        continue
 
             if whitelist is not None and ticker not in whitelist:
                 continue
