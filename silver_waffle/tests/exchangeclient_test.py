@@ -21,7 +21,6 @@ class TestExchangeClient(unittest.TestCase):
     clients = []
     def test_toggle(self):
         for client in exchanges:
-            # Here I catch any exception
             pair = random.choice(list(client.pairs))
             pair.enable()
             pair.disable()
