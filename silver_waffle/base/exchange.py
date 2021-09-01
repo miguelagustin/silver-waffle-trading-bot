@@ -182,13 +182,17 @@ class Orderbook:
 
 class Currency:
     def __init__(self, *, name, symbol, exchange_client):
+        if not name:
+            raise ValueError('invalid name')
         self.name = name
         self.exchange_client = exchange_client
         self.symbol = symbol
         self._balance = {'available_balance':None, 'locked_balance': None, 'total_balance': None}
         # self.update_balance()
         self.global_price = 0
-        self.empty_value = money.Money(10, currency='USD')
+        self.update_balance()
+        self.update_global_price()
+        self.empty_value = money.Money(20, currency='USD')
         self.quote_pairs = []  # pairs where this currency is quote
         self.base_pairs = []  # pairs where this currency is base
         self._exchange_rate_last_update = 0
@@ -386,7 +390,7 @@ class Pair:
         self.orderbook.update(self.exchange_client.get_book(self))
 
     def __hash__(self):
-        return hash((self.quote.name, self.base.name))
+        return hash(f"{self.quote.name}{self.base.name}")
 
     def __eq__(self, other):
         return (self.quote.name, self.base.name) == (other.quote.name, self.base.name)

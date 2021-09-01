@@ -16,23 +16,31 @@ number_of_attempts = 1
 
 class ExchangeClient():
     all_currencies = []
+    CCXT_QUOTE_KEYS = ['quote', 'quoteAsset', 'quote_currency']
+    CCXT_BASE_KEYS = ['base', 'baseAsset', 'base_currency']
+    CCXT_TICKSIZE_KEYS = ['tickSize', 'price_tick', 'minimum_order_amount']
 
-    def __init__(self, exchange: str, websockets_client=None,
+    def __init__(self, exchange: str = None, websockets_client=None,
                  socket_settings={'book': True, 'orders': True, 'transactions': True},
-                 ccxt_client=None, whitelist=None, creds=None):
-        try:
-            self.ccxt_client = getattr(ccxt, ccxt_client)()
-        except AttributeError:
+                 whitelist=None, creds={}, read_only=None, auto_initialize=True):
+        if exchange is not None:
             try:
-                module = importlib.import_module(f'silver_waffle.exchanges.{exchange.lower()}')
-                return getattr(module, exchange.lower().capitalize())()
-            except (ModuleNotFoundError, AttributeError):
-                raise ValueError('Exchange not found')
+                if creds:
+                    self.ccxt_client = getattr(ccxt, exchange)(creds)
+                    self.read_only = False
+                if not creds:
+                    self.ccxt_client = getattr(ccxt, exchange)()
+                    self.read_only = True
+                if read_only is not None:
+                    self.read_only = read_only
+            except AttributeError:
+                try:
+                    module = importlib.import_module(f'silver_waffle.exchanges.{exchange.lower()}')
+                    return getattr(module, exchange.lower().capitalize())()
+                except (ModuleNotFoundError, AttributeError):
+                    raise ValueError('Exchange not found')
         self.websockets_client = websockets_client
-        if creds is None:
-            self.read_only = True
-        else:
-            self.read_only = False
+        self.name = exchange
         self._update_book_sleep_time = 1
         self._update_balance_sleep_time = 7
         self.pairs = set()
@@ -44,13 +52,17 @@ class ExchangeClient():
         self.cooldown = 2
         self.threads = {}
         self.update_book_if_balance_is_empty = True
-
+        self._whitelist = whitelist
+        self._socket_settings = socket_settings
         self.socket_functionality = {}
+        if auto_initialize:
+            self.initialize()
 
-        currencies, pairs = self.get_list_of_currencies_and_pairs(whitelist=whitelist)
+    def initialize(self):
+        currencies, pairs = self.get_list_of_currencies_and_pairs(whitelist=self._whitelist)
 
         for pair in pairs:
-            self._register_pair_and_currencies(pair, socket_settings=socket_settings)
+            self._register_pair_and_currencies(pair, socket_settings=self._socket_settings)
             if self.read_only is False:
                 for currency in [pair.base, pair.quote]:
                     if not (currency in self.threads and self.threads[currency]):
@@ -129,28 +141,31 @@ class ExchangeClient():
         for pair in markets:
             if pair['active'] is False:
                 continue
-            try:
-                quote_symbol = pair['info']['quoteAsset']
-                base_symbol = pair['info']['baseAsset'].replace(quote_symbol, '')
-            except KeyError:
-                quote_symbol = pair['info']['quote']
-                base_symbol = pair['info']['base'].replace(quote_symbol, '')
+            for quote_key, base_key in zip(self.CCXT_QUOTE_KEYS, self.CCXT_BASE_KEYS):
+                try:
+                    quote_symbol = pair['info'][quote_key]
+                    base_symbol = pair['info'][base_key]
+                except KeyError:
+                    continue
             base_curr = quote_curr = None
             ticker = pair['symbol']
 
             #CCXT is inconsistent across exchanges so we have to do this
 
-            for dict_index in ['tickSize', 'price_tick']:
+            for key in self.CCXT_TICKSIZE_KEYS:
                 try:
-                    minimum_step = pair['info'][dict_index]
+                    minimum_step = pair['info'][key][0]
                     break
                 except KeyError:
                     try:
-                        minimum_step = pair['info']['filters'][0][dict_index]
+                        minimum_step = pair['info']['filters'][0][key]
                         break
                     except KeyError:
-                        continue
-
+                        try:
+                            minimum_step = pair['info'][key]
+                            break
+                        except KeyError:
+                            continue
             if whitelist is not None and ticker not in whitelist:
                 continue
             for curr in list_of_currencies:
@@ -166,6 +181,7 @@ class ExchangeClient():
                                       exchange_client=self)
             pair = Pair(ticker=ticker, quote=quote_curr, base=base_curr,
                         minimum_step=minimum_step, exchange_client=self)
+            # print(f"{pair.quote.name}{pair.base.name}")
             list_of_pairs.append(pair)
             list_of_currencies.add(quote_curr)
             list_of_currencies.add(base_curr)

@@ -73,7 +73,7 @@ def terminate_thread(thread):
         ctypes.pythonapi.PyThreadState_SetAsyncExc(thread.ident, None)
         raise SystemError("PyThreadState_SetAsyncExc failed")
 
-def _is_symbol_a_cryptocurrency(self, symbol: str):
+def _is_symbol_a_cryptocurrency(symbol: str):
     return False if symbol in FIAT_SYMBOLS else True
 
 # Disable

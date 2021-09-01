@@ -2,6 +2,7 @@ from __future__ import annotations
 from silver_waffle.base.side import ASK, BID
 from ordered_set import OrderedSet
 import silver_waffle.base.exchange
+from tenacity import retry
 
 class PairManager:
     def __init__(self, exchange_client=None, list_of_pairs=None):
