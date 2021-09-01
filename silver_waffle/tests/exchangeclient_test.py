@@ -32,6 +32,7 @@ class TestExchangeClient(unittest.TestCase):
                 pair.enable()
                 time.sleep(3)
                 self.assertTrue(pair.orderbook)
+                pair.disable()
     def test_book_fetch(self):
         for client in exchanges:
             print(f"Testing {client.name}")
