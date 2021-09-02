@@ -4,6 +4,8 @@ import requests
 import sys
 from silver_waffle.base.side import ASK, BID
 from silver_waffle.base.exchange import Order, Currency, Pair
+from silver_waffle.credentials import Credential
+import silver_waffle.credentials
 from random import randint
 import json
 import websocket
@@ -12,9 +14,9 @@ import threading
 from tenacity import RetryError, retry, stop_after_attempt
 import importlib
 
-number_of_attempts = 1
+number_of_attempts = 10
 
-class ExchangeClient():
+class ExchangeClient:
     all_currencies = []
     CCXT_QUOTE_KEYS = ['quote', 'quoteAsset', 'quote_currency']
     CCXT_BASE_KEYS = ['base', 'baseAsset', 'base_currency']
@@ -22,15 +24,29 @@ class ExchangeClient():
 
     def __init__(self, exchange: str = None, websockets_client=None,
                  socket_settings={'book': True, 'orders': True, 'transactions': True},
-                 whitelist=None, creds={}, read_only=None, auto_initialize=True):
+                 whitelist=None, creds={}, read_only=None, auto_initialize=True, auto_detect_credentials=True):
         if exchange is not None:
             try:
                 if creds:
-                    self.ccxt_client = getattr(ccxt, exchange)(creds)
+                    if isinstance(creds, Credential):
+                        self.ccxt_client = getattr(ccxt, exchange)(creds.to_ccxt_credential())
+                    else:
+                        self.ccxt_client = getattr(ccxt, exchange)(creds)
                     self.read_only = False
                 if not creds:
-                    self.ccxt_client = getattr(ccxt, exchange)()
-                    self.read_only = True
+                    if auto_detect_credentials:
+                        credentials = silver_waffle.credentials.find_credentials_by_exchange_name(exchange)
+                        if credentials:
+                            print(f"Found credentials for exchange {exchange}")
+                            self.ccxt_client = getattr(ccxt, exchange)(credentials[0].to_ccxt_credential())
+
+                            self.read_only = False
+                        else:
+                            self.ccxt_client = getattr(ccxt, exchange)()
+                            self.read_only = True
+                    else:
+                        self.ccxt_client = getattr(ccxt, exchange)()
+                        self.read_only = True
                 if read_only is not None:
                     self.read_only = read_only
             except AttributeError:
@@ -39,6 +55,7 @@ class ExchangeClient():
                     return getattr(module, exchange.lower().capitalize())()
                 except (ModuleNotFoundError, AttributeError):
                     raise ValueError('Exchange not found')
+        self.creds = creds
         self.websockets_client = websockets_client
         self.name = exchange
         self._update_book_sleep_time = 1
@@ -269,6 +286,9 @@ class ExchangeClient():
 
     def __str__(self):
         return self.name
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class WebsocketsClient(object):

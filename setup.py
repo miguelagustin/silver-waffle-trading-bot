@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='silver_waffle',
     version='0.2',
-    packages=['silver_waffle', 'silver_waffle.base', 'silver_waffle.exchanges'],
+    packages=['silver_waffle', 'silver_waffle.base', 'silver_waffle.exchanges', 'silver_waffle.tests'],
     url='',
     license='',
     author='miguel',

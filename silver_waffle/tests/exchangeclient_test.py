@@ -17,26 +17,34 @@ for client in clients:
 for client in exchanges:
     assert client.pairs
 
+
 class TestExchangeClient(unittest.TestCase):
     clients = []
+
     def test_toggle(self):
         for client in exchanges:
-            pair = random.choice(list(client.pairs))
-            pair.enable()
-            pair.disable()
+            with self.subTest(client=client):
+                pair = random.choice(list(client.pairs))
+                pair.enable()
+                pair.disable()
+
     def test_orderbook_daemon(self):
         for client in exchanges:
-            for _ in range(10):
-                pair = random.choice(list(client.pairs))
-                print(f"Testing {client.name}:{pair.ticker}")
-                pair.enable()
-                time.sleep(3)
-                self.assertTrue(pair.orderbook)
-                pair.disable()
+            with self.subTest(client=client):
+                for _ in range(5):
+                    pair = random.choice(list(client.pairs))
+                    print(f"Testing {client.name}:{pair.ticker}")
+                    pair.enable()
+                    time.sleep(5)
+                    self.assertIsNotNone(pair.orderbook[ASK]._orders)
+                    self.assertIsNotNone(pair.orderbook[BID]._orders)
+                    pair.disable()
+
     def test_book_fetch(self):
         for client in exchanges:
-            print(f"Testing {client.name}")
-            pair = random.choice(list(client.pairs))
-            response = client.get_book(pair)
-            self.assertTrue(response[ASK])
-            self.assertTrue(response[BID])
+            with self.subTest(client=client):
+                print(f"Testing {client.name}")
+                pair = random.choice(list(client.pairs))
+                response = client.get_book(pair)
+                self.assertTrue(response[ASK])
+                self.assertTrue(response[BID])

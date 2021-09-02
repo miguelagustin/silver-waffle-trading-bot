@@ -48,7 +48,7 @@ class OrderbookSide:
         self.side = side
         self.pair = pair
         self._idx = 0
-        self._orders = []
+        self._orders = None
 
     def __getitem__(self, i):
         # we lazily create the Order objects to save CPU cycles
