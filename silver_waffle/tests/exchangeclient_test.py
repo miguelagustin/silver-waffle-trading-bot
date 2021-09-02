@@ -18,33 +18,57 @@ for client in exchanges:
     assert client.pairs
 
 
+def loop_through_exchanges(method):
+    def call(self, *args, **kwargs):
+        for client in exchanges:
+            if client.read_only is True:
+                continue
+            with self.subTest(client=client):
+                method(self, client, *args, **kwargs)
+
+    return call
+
+
 class TestExchangeClient(unittest.TestCase):
     clients = []
 
-    def test_toggle(self):
-        for client in exchanges:
-            with self.subTest(client=client):
-                pair = random.choice(list(client.pairs))
-                pair.enable()
-                pair.disable()
+    @loop_through_exchanges
+    def test_toggle(self, client):
+        pair = random.choice(list(client.pairs))
+        pair.enable()
+        pair.disable()
 
-    def test_orderbook_daemon(self):
-        for client in exchanges:
-            with self.subTest(client=client):
-                for _ in range(5):
-                    pair = random.choice(list(client.pairs))
-                    print(f"Testing {client.name}:{pair.ticker}")
-                    pair.enable()
-                    time.sleep(5)
-                    self.assertIsNotNone(pair.orderbook[ASK]._orders)
-                    self.assertIsNotNone(pair.orderbook[BID]._orders)
-                    pair.disable()
+    @loop_through_exchanges
+    def test_orderbook_daemon(self, client: ExchangeClient):
+        for _ in range(5):
+            pair = random.choice(list(client.pairs))
+            print(f"Testing {client.name}:{pair.ticker}")
+            pair.enable()
+            time.sleep(5)
+            self.assertIsNotNone(pair.orderbook[ASK]._orders)
+            self.assertIsNotNone(pair.orderbook[BID]._orders)
+            pair.disable()
 
-    def test_book_fetch(self):
-        for client in exchanges:
-            with self.subTest(client=client):
-                print(f"Testing {client.name}")
-                pair = random.choice(list(client.pairs))
-                response = client.get_book(pair)
-                self.assertTrue(response[ASK])
-                self.assertTrue(response[BID])
+    @loop_through_exchanges
+    def test_book_fetch(self, client: ExchangeClient):
+        print(f"Testing {client.name}")
+        pair = random.choice(list(client.pairs))
+        response = client.get_book(pair)
+        self.assertTrue(response[ASK])
+        self.assertTrue(response[BID])
+
+    @loop_through_exchanges
+    def test_get_balance(self, client: ExchangeClient):
+        for _ in range(3):
+            pair = random.choice(list(client.pairs))
+            available, locked = client.get_balance(pair.base)
+            self.assertTrue(isinstance(available, float) or isinstance(available, int))
+            self.assertTrue(isinstance(locked, float) or isinstance(locked, int))
+
+    @loop_through_exchanges
+    def test_get_active_orders(self, client: ExchangeClient):
+        for _ in range(3):
+            pair = random.choice(list(client.pairs))
+            orders = client.get_active_orders(pair)
+            self.assertTrue(ASK in orders.keys())
+            self.assertTrue(BID in orders.keys())
