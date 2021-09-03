@@ -21,8 +21,6 @@ for client in exchanges:
 def loop_through_exchanges(method):
     def call(self, *args, **kwargs):
         for client in exchanges:
-            if client.read_only is True:
-                continue
             with self.subTest(client=client):
                 method(self, client, *args, **kwargs)
 
@@ -59,6 +57,9 @@ class TestExchangeClient(unittest.TestCase):
 
     @loop_through_exchanges
     def test_get_balance(self, client: ExchangeClient):
+        if client.read_only is True:
+            print('Client is set as read only. This test cannot run.')
+            return
         for _ in range(3):
             pair = random.choice(list(client.pairs))
             available, locked = client.get_balance(pair.base)
@@ -67,6 +68,9 @@ class TestExchangeClient(unittest.TestCase):
 
     @loop_through_exchanges
     def test_get_active_orders(self, client: ExchangeClient):
+        if client.read_only is True:
+            print('Client is set as read only. This test cannot run.')
+            return
         for _ in range(3):
             pair = random.choice(list(client.pairs))
             orders = client.get_active_orders(pair)
